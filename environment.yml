@@ -5,6 +5,7 @@ dependencies:
     - pip
     - python
     - pip:
+        - beautifulsoup4
         - black
         - cookiecutter
         - ipywidgets
