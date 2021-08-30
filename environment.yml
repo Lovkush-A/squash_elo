@@ -1,0 +1,16 @@
+name: squash_elo
+channels:
+    - defaults
+dependencies:
+    - pip
+    - python
+    - pip:
+        - black
+        - cookiecutter
+        - ipywidgets
+        - matplotlib
+        - notebook
+        - numpy
+        - pandas
+        - seaborn
+        - tqdm
