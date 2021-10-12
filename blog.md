@@ -4,10 +4,10 @@
 Using the ELO rating system and past few decades of squash match data, I created ratings that are superior to the current simplistic ratings used by the Professional Squash Association (PSA). Code for this project is available in the [GitHub repository for this project](https://github.com/Lovkush-A/squash_elo).
 
 The two main improvements ELO ratings provide over PSA ratings are:
-* In ELO, a person gets rating points based on who they play against, rather than which round of a tournament they reach. It is more impressive to beat the world's best player in Round 1, then to get to the quarter-final of a tournament by having a lucky draw.
-* In ELO, the rating is predictive and interpretable. The difference between two players' ELO ratings provides a simple way of estimating the odds of the higher rated player beating the lower rated player. In PSA's system, the rating values have little useful information; it is revealing that the ratings are never shown or commentated on during squash broadcasts.
+1. In ELO, a person gets rating points based on who they play against, rather than which round of a tournament they reach. It is more impressive to beat the world's best player in Round 1, then to get to the quarter-final of a tournament by beating low ranking players.
+2. In ELO, the rating is predictive and interpretable. The difference between two players' ELO ratings provides a simple way of estimating the odds of the higher rated player beating the lower rated player. In PSA's system, the rating values have little useful information; it is revealing that the ratings are never shown or commentated on during squash broadcasts.
 
-The first improvement is guaranteed by how the ELO rating system works, see explanation below.
+The first improvement is guaranteed by how the ELO rating system works; see the explanation below.
 
 The second improvement is not guaranteed but requires empirical verification. This is done by computing the following 'calibration metric' for various values of `p`:
 
@@ -29,7 +29,7 @@ After doing some hyper-parameter tuning, I was able to achieve the following val
 |                                                                                    0.95 |                  8834 |                                                       0.937967 |
 |                                                                                    1.00 |                  5831 |                                                       0.967930 |
 
-In the rest of this blog, I will describe how I achieved these remarkable results!
+You can see that the predictions are well callibrated! In the rest of this blog, I will describe the process taken to do this.
 
 ## ELO
 
@@ -59,19 +59,30 @@ And that's it!
 ## The data
 The raw data I used contains the male match history from the past few decades. It includes players' names, their seed for the tournmanet, who won the match, the scores of the games in the match (usually) and some other minor details.
 
+Here are a few entries from the dataframe to illustrate:
+
+| tournament_index |          round |                                           players |                       result |
+|-----------------:|---------------:|--------------------------------------------------:|-----------------------------:|
+|                0 | Quarter-finals |     [1] Tayyab Aslam (PAK) bt Farhan Hashmi (PAK) | 7-11, 11-9, 11-5, 11-5 (32m) |
+|                0 | Quarter-finals | [7] Israr Ahmed (PAK) bt [9/16] Waqas Mehboob ... |       11-3, 11-3, 11-8 (23m) |
+|                0 | Quarter-finals |  [4] Amaad Fareed (PAK) bt [5] Farhan Zaman (PAK) |      11-8, 11-7, 12-10 (25m) |
+
+
 ## Cleaning
 There were several parts to cleaning the raw data.
 * Dropping columns that were not useful for the analysis (`round` and `tournament_index`).
-* Extracting the score in games from the score in points provided in the results column. In retrospect, this was not needed, but it is still useful if I want to extend the project to make use of games scores. See possible improvements below.
+* Extracting the score in games from the score in points provided in the `result` column. In retrospect, this was not needed for the project, but it is still useful if I want to extend the project to make use of games scores. See possible improvements below.
 * Keeping only those rows in which one player beat another player and dropping all other rows.
   * The vast majority of rows dropped were because a player automatically gets through in a particular round. E.g. if there are 48 players in a tournament, then in Round 1, players seeded 1 to 16 will automatically get through to Round 1 without having to beat anybody.
-  * There were exactly two other rows that got deleted. One is recorded as "No shows" and the other is recorded as "Final not played due to unsafe court conditions."
+  * There were exactly two other rows that got dropped. One is recorded as "No shows" and the other is recorded as "Final not played due to unsafe court conditions."
 * Parsing the `players` column of the raw data.
   * Extract the name (and seed and country) of the winner and loser of the match.
-  * This was done using regex.
+  * This was done using regex. If you are interested, the regex patterns used are in the `parse_player_entry` function in the [processing notebook](https://github.com/Lovkush-A/squash_elo/blob/main/notebooks/01-la-processing.ipynb).
 
 ## Analysis
-The analysis consisted of looping through all the matches (chronologically) and updating ratings one match at a time, and then computing the calibration metrics described above.
+The analysis is done in the [analysis notebook](http://localhost:8888/notebooks/notebooks/02-la-analysis.ipynb). 
+
+The analysis consisted of looping through all the matches (chronologically), updating ELO ratings one match at a time using the rules/formulae described above, and then computing the calibration metrics described above.
 
 I first tried doing this when `K` is 32, the value used in chess. Here are the calibration metrics this achieves:
 
