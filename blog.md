@@ -1,7 +1,7 @@
 # ELO Rating for Squash
 
 ## Project Overview
-Using the ELO rating system and past few decades of squash match data, I created ratings that are superior to the current simplistic ratings used by the Professional Squash Association (PSA).
+Using the ELO rating system and past few decades of squash match data, I created ratings that are superior to the current simplistic ratings used by the Professional Squash Association (PSA). Code for this project is available in the [GitHub repository for this project](https://github.com/Lovkush-A/squash_elo).
 
 The two main improvements ELO ratings provide over PSA ratings are:
 * In ELO, a person gets rating points based on who they play against, rather than which round of a tournament they reach. It is more impressive to beat the world's best player in Round 1, then to get to the quarter-final of a tournament by having a lucky draw.
@@ -33,11 +33,11 @@ In the rest of this blog, I will describe how I achieved these remarkable result
 
 ## ELO
 
-The surprising thing about ELO is how simple it is, given what it can achieve.
+The surprising thing about ELO is how simple it is, given the results it can achieve.
 
 The underlying ideas are straightforward:
-* use the difference between ratings to compute an expected score
-* changes in ratings are proportional to the difference between the true score and the expected score.
+* Use the difference between ratings to compute an expected score for an individual match.
+* Changes in ratings after an individual match are proportional to the difference between the true score and the expected score.
 
 The full details are as follows:
 
@@ -50,7 +50,7 @@ The full details are as follows:
         * The quantity `1-p(r1, r2)` is the difference between the true score of 1 (representing victory) and predicted score of `p(r1, r2)`.
     * Player 1's new rating is `r1+delta`
     * Player 2's new rating is `r2-delta`
-* If a player has no matches, we assign them a default starting rating of 1500.
+* If a player has not yet played any matches, we assign them a default starting rating of 1500.
     * This is arbitrary, since ELO ratings only depend on differences in ratings.
 
 And that's it!
@@ -61,13 +61,44 @@ The raw data I used contains the male match history from the past few decades. I
 
 ## Cleaning
 There were several parts to cleaning the raw data.
-* 
+* Dropping columns that were not useful for the analysis (`round` and `tournament_index`).
+* Extracting the score in games from the score in points provided in the results column. In retrospect, this was not needed, but it is still useful if I want to extend the project to make use of games scores. See possible improvements below.
+* Keeping only those rows in which one player beat another player and dropping all other rows.
+  * The vast majority of rows dropped were because a player automatically gets through in a particular round. E.g. if there are 48 players in a tournament, then in Round 1, players seeded 1 to 16 will automatically get through to Round 1 without having to beat anybody.
+  * There were exactly two other rows that got deleted. One is recorded as "No shows" and the other is recorded as "Final not played due to unsafe court conditions."
+* Parsing the `players` column of the raw data.
+  * Extract the name (and seed and country) of the winner and loser of the match.
+  * This was done using regex.
 
 ## Analysis
-First attempt with 32. then hyper-parameter tuning.
+The analysis consisted of looping through all the matches (chronologically) and updating ratings one match at a time, and then computing the calibration metrics described above.
+
+I first tried doing this when `K` is 32, the value used in chess. Here are the calibration metrics this achieves:
+
+| Predicted probability of higher </br>rated player winning.</br> Rounded to nearest 0.05 | Number of predictions | Observed fraction of matches that </br>higher rated player won |
+|----------------------------------------------------------------------------------------:|----------------------:|---------------------------------------------------------------:|
+|                                                                                    0.50 |                  7386 |                                                       0.466152 |
+|                                                                                    0.55 |                 11801 |                                                       0.566647 |
+|                                                                                    0.60 |                  9542 |                                                       0.657514 |
+|                                                                                    0.65 |                  8010 |                                                       0.746067 |
+|                                                                                    0.70 |                  6759 |                                                       0.803817 |
+|                                                                                    0.75 |                  5772 |                                                       0.867983 |
+|                                                                                    0.80 |                  4967 |                                                       0.900946 |
+|                                                                                    0.85 |                  4062 |                                                       0.932546 |
+|                                                                                    0.90 |                  3128 |                                                       0.953005 |
+|                                                                                    0.95 |                  2112 |                                                       0.974905 |
+|                                                                                    1.00 |                   369 |                                                       0.981030 |
+
+The pattern here is that the predicted odds of winning are underconfident: if the ELO rating thinks that the higher-rated player has 80% odds of winning, they actually win 90% of the time.
+My instinct was that the ELO rating was not updating quick enough based on the data, i.e. that `K` is too small.
+But I was not 100% sure of this, so I did some (basic and manual) hyperparamter tuning, creating a function that loops through several values of `K` (namely 10, 50, 100, 200 and 500).
+
+Manually looking at the tables shows that `K` = 100 is the best value out of these, and it with this hyper-parameter that I achieved the calibration results given in the overview.
 
 ## Possible improvements
+There are numerous ways this project could be improved or extended. Here are three possibilities:
+
 * Automatically update ratings as new results come in, by scraping live match data.
 * Create a web app with these squash ratings. Allow users to see predictions for upcoming matches and tournaments, and explore past data.
 * Currently we only use the final result of the match. However, we should be able to use the score in games to improve the ratings: winning 3-0 is more impressive than winning 3-2 and that should be reflected in the update rule. The way to do this is to have more refined definition of 'true score'. Right now true score is 1 for victory, but can imagine having true score of 0.9 for winning 3-0 and true score of 0.7 for winning 3-2. This would require some tuning.
-
+* Creating a general purpose ELO-rating package that people can use to create ELO ratings and predictions for any sports or competitions they are interested in.
