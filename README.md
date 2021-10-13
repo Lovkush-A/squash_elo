@@ -1,4 +1,6 @@
 # ELO Ratings for Squash
+## Blogpost
+This project is summarised in [this blogpost](https://lovkush-a.github.io/blog/data%20science/2021/10/12/squash_elo.html).
 
 ## Summary
 The Professional Squash Association (PSA) uses a simple rating system to rate professional squash players. The aim of this project was to try using the more sophisticated (but still relatively simple) ELO rating system, which is most famously used to rate professional chess players.
