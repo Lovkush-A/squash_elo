@@ -3,40 +3,16 @@
 ## Project Overview
 Using the ELO rating system and past few decades of squash match data, I created ratings that are superior to the current simplistic ratings used by the Professional Squash Association (PSA). Code for this project is available in the [GitHub repository for this project](https://github.com/Lovkush-A/squash_elo).
 
-The two main improvements ELO ratings provide over PSA ratings are:
-1. In ELO, a person gets rating points based on who they play against, rather than which round of a tournament they reach. It is more impressive to beat the world's best player in Round 1, then to get to the quarter-final of a tournament by beating low ranking players.
-2. In ELO, the rating is predictive and interpretable. The difference between two players' ELO ratings provides a simple way of estimating the odds of the higher rated player beating the lower rated player. In PSA's system, the rating values have little useful information; it is revealing that the ratings are never shown or commentated on during squash broadcasts.
+## Problem Statement
+There are two big problems in the current way squash ratings are determined by PSA. 
 
-The first improvement is guaranteed by how the ELO rating system works; see the explanation below.
+1. A player gets rating points depending on which tournment they play in and which round they reach in the tournament. There is zero weight put on who you actually play against. E.g. it ought to be more impressive to beat the world's best player in Round 1, then to reach a quarter-final by beating low ranked players (because you had a lucky draw).
 
-The second improvement is not guaranteed but requires empirical verification. This is done by computing the following 'calibration metric' for various values of `p`:
+2. The current rating points are not meaningful. It is revealing that ratings point are never mentioned in squash broadcasts.
 
-* In all the matches in which the ELO rating system predicts that the higher-rated player has probability `p` of winning, what is the true rate at which the higher-rated player actually wins.
-
-After doing some hyper-parameter tuning, I was able to achieve the following values for these metrics:
-
-| Predicted probability of higher rated player winning. Rounded to nearest 0.05 | Number of predictions | Observed fraction of matches that higher rated player won |
-|----------------------------------------------------------------------------------------:|----------------------:|---------------------------------------------------------------:|
-|                                                                                    0.50 |                  2566 |                                                       0.518316 |
-|                                                                                    0.55 |                  5315 |                                                       0.559548 |
-|                                                                                    0.60 |                  5292 |                                                       0.611678 |
-|                                                                                    0.65 |                  5238 |                                                       0.668385 |
-|                                                                                    0.70 |                  5401 |                                                       0.700796 |
-|                                                                                    0.75 |                  5642 |                                                       0.755583 |
-|                                                                                    0.80 |                  6024 |                                                       0.813081 |
-|                                                                                    0.85 |                  6507 |                                                       0.849393 |
-|                                                                                    0.90 |                  7258 |                                                       0.900248 |
-|                                                                                    0.95 |                  8834 |                                                       0.937967 |
-|                                                                                    1.00 |                  5831 |                                                       0.967930 |
-
-You can see that the predictions are well callibrated! In the rest of this blog, I will describe the process taken to do this.
-
-## ELO
-
-The surprising thing about ELO is how simple it is, given the results it can achieve.
-
-The underlying ideas are straightforward:
-* Use the difference between ratings to compute an expected score for an individual match.
+The proposed strategy is to use the ELO rating system.
+The underlying ideas behind ELO are straightforward:
+* Use the difference between ratings of players to compute an expected score for an individual match.
 * Changes in ratings after an individual match are proportional to the difference between the true score and the expected score.
 
 The full details are as follows:
@@ -55,9 +31,22 @@ The full details are as follows:
 
 And that's it!
 
+By construction, ELO gaurantees to fix problem 1 because the ratings are completely based on who you beat, rather than which round of a tournament you reach.
 
-## The data
-The raw data I used contains the male match history from the past few decades. It includes players' names, their seed for the tournmanet, who won the match, the scores of the games in the match (usually) and some other minor details.
+However, the second problem is not guaranteed to be fixed by ELO, and will require empirical verification. This leads on to the metrics used to evaluate ELO.
+
+## Metrics
+We evaluate ELO by computing the following 'calibration metric' for various values of `p`:
+
+* In all the matches in which the ELO rating system predicts that the higher-rated player has probability `p` of winning, what is the true rate at which the higher-rated player actually wins.
+
+For example, if the ELO rating system believes that the higher rated player has 70% odds of winning, then we should observe the higher rated player winning approximately 70% of the time.
+
+These calibration metrics provide a measure of how well (or not) a rating system can fix problem 2.
+
+
+## Data Exploration
+The raw data I used contains the male match history from the past few decades. It includes players' names, their seed for the tournament, who won the match, the scores of the games in the match (usually) and some other minor details.
 
 Here are a few entries from the dataframe to illustrate:
 
@@ -67,9 +56,7 @@ Here are a few entries from the dataframe to illustrate:
 |                0 | Quarter-finals | [7] Israr Ahmed (PAK) bt [9/16] Waqas Mehboob ... |       11-3, 11-3, 11-8 (23m) |
 |                0 | Quarter-finals |  [4] Amaad Fareed (PAK) bt [5] Farhan Zaman (PAK) |      11-8, 11-7, 12-10 (25m) |
 
-
-## Cleaning
-There were several parts to cleaning the raw data.
+Not all of the data in this dataframe was needed for the project and there was a little bit of dirty data. Here are the cleaning and feature extraction steps taken:
 * Dropping columns that were not useful for the analysis (`round` and `tournament_index`).
 * Extracting the score in games from the score in points provided in the `result` column. In retrospect, this was not needed for the project, but it is still useful if I want to extend the project to make use of games scores. See possible improvements below.
 * Keeping only those rows in which one player beat another player and dropping all other rows.
@@ -79,12 +66,26 @@ There were several parts to cleaning the raw data.
   * Extract the name (and seed and country) of the winner and loser of the match.
   * This was done using regex. If you are interested, the regex patterns used are in the `parse_player_entry` function in the [processing notebook](https://github.com/Lovkush-A/squash_elo/blob/main/notebooks/01-la-processing.ipynb).
 
-## Analysis
-The analysis is done in the [analysis notebook](http://localhost:8888/notebooks/notebooks/02-la-analysis.ipynb). 
+At the end of this exploration, cleaning and feature extraction, the key information we end up with is a dataframe with two columns (name of winner and name of loser) where each row is a single match, and it is ordered chronologically.
+## Data Visualisation
+As far as I know, there are no data visualisations that help with the next task of calculating ELO ratings. If you run the [processing notebook](https://github.com/Lovkush-A/squash_elo/blob/main/notebooks/01-la-processing.ipynb), you will see some visuals (e.g. showing distribution of players' win percentages) but they have no influence on the next steps.
 
-The analysis consisted of looping through all the matches (chronologically), updating ELO ratings one match at a time using the rules/formulae described above, and then computing the calibration metrics described above.
+## Data Preprocessing
+This has already been discussed in the data exploration section above.
 
-I first tried doing this when `K` is 32, the value used in chess. Here are the calibration metrics this achieves:
+## Implementation
+The code to calculcate the ELO rating systems is in the [analysis notebook](https://github.com/Lovkush-A/squash_elo/blob/main/notebooks/02-la-analysis.ipynb).
+
+Surprisingly, there were minimal complications in the implementation of the ELO rating system. I just had to write functions that calculate how to update ELO ratings based on a single match, then loop through all matches and update ELO ratings one-by-one.
+
+One implementation detail worth noting is how I chose an initial value for the hyper-parameter `K` (see problem statement section). The choice was based on the values used in chess (the most famous place ELO ratings are used) and they are given in the [wikipedia article on ELO rating system](https://en.wikipedia.org/wiki/Elo_rating_system#Mathematical_details).
+
+## Refinement
+The refinement process was straightforward: I simply tried various values for the hyper-parameter `K` and looked at how their values in the 'calibration metrics' compared. The first solution tried used `K=32` and the final solution uses `K=100`.
+
+## Results
+
+Here is table of 'calibration metrics' for `K=32`:
 
 | Predicted probability of higher </br>rated player winning.</br> Rounded to nearest 0.05 | Number of predictions | Observed fraction of matches that </br>higher rated player won |
 |----------------------------------------------------------------------------------------:|----------------------:|---------------------------------------------------------------:|
@@ -102,12 +103,33 @@ I first tried doing this when `K` is 32, the value used in chess. Here are the c
 
 The pattern here is that the predicted odds of winning are underconfident: if the ELO rating thinks that the higher-rated player has 80% odds of winning, they actually win 90% of the time.
 My instinct was that the ELO rating was not updating quick enough based on the data, i.e. that `K` is too small.
-But I was not 100% sure of this, so I did some (basic and manual) hyperparamter tuning, creating a function that loops through several values of `K` (namely 10, 50, 100, 200 and 500).
+But I was not 100% sure of this, so I did some (basic and manual) hyperparameter tuning, creating a function that loops through several values of `K` (namely 10, 50, 100, 200 and 500).
 
-Manually looking at the tables shows that `K` = 100 is the best value out of these, and it with this hyper-parameter that I achieved the calibration results given in the overview.
+Manually looking at the tables shows that `K` = 100 is the best value out of these. Here are the values for the calibration metrics we get:
 
-## Possible improvements
-There are numerous ways this project could be improved or extended. Here are three possibilities:
+| Predicted probability of higher rated player winning. Rounded to nearest 0.05 | Number of predictions | Observed fraction of matches that higher rated player won |
+|----------------------------------------------------------------------------------------:|----------------------:|---------------------------------------------------------------:|
+|                                                                                    0.50 |                  2566 |                                                       0.518316 |
+|                                                                                    0.55 |                  5315 |                                                       0.559548 |
+|                                                                                    0.60 |                  5292 |                                                       0.611678 |
+|                                                                                    0.65 |                  5238 |                                                       0.668385 |
+|                                                                                    0.70 |                  5401 |                                                       0.700796 |
+|                                                                                    0.75 |                  5642 |                                                       0.755583 |
+|                                                                                    0.80 |                  6024 |                                                       0.813081 |
+|                                                                                    0.85 |                  6507 |                                                       0.849393 |
+|                                                                                    0.90 |                  7258 |                                                       0.900248 |
+|                                                                                    0.95 |                  8834 |                                                       0.937967 |
+|                                                                                    1.00 |                  5831 |                                                       0.967930 |
+
+You can see that the predictions are well callibrated!
+
+## Reflection
+I personally find these results astonishing. By using a straightforward rule to update players' ratings based on their old ratings, we are able to get a meaningful rating system that provides callibrated odds on who will win a match.
+
+I was not expecting this at all! Before doing the project, I was anticipating having to tweak the algorithm (e.g. by including some 'domain knowledge' somehow), but the ELO rating system just worked out-of-the-box. It is always nice when things simply work out!
+
+## Improvement
+There are numerous ways this project could be improved or extended. Here are just a few possibilities:
 
 * Automatically update ratings as new results come in, by scraping live match data.
 * Create a web app with these squash ratings. Allow users to see predictions for upcoming matches and tournaments, and explore past data.
